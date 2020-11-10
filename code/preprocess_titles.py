@@ -31,7 +31,7 @@ class AITADataset(Dataset):
 		title = str(self.titles[item])
 		target = self.targets[item]
 		encoding = self.tokenizer.encode_plus(
-		review,
+		title,
 		add_special_tokens=True,
 		max_length=self.max_len,
 		return_token_type_ids=False,
@@ -82,5 +82,3 @@ df_val, df_test = train_test_split(df_test,test_size=0.5,random_state=RANDOM_SEE
 train_data_loader = create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
 val_data_loader = create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
 test_data_loader = create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
-
-# print(test_data_loader)
