@@ -11,11 +11,12 @@ from sklearn.metrics import confusion_matrix, classification_report
 from collections import defaultdict
 from textwrap import wrap
 import os
+import requests
+from tqdm import tqdm
 
 def getDataset():
     url = "https://www.dropbox.com/s/qjmj4wq9ywz5tb7/clean_data.csv?dl=1"
     fname = "temp_data.csv"
-
 
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
@@ -93,8 +94,8 @@ if __name__=="__main__":
 	train_dataloader = create_dataloader(train_inputs,train_masks,train_labels,"train",BATCH_SIZE)
 	val_dataloader = create_dataloader(val_inputs,val_masks,val_labels,"val",BATCH_SIZE)
 	
-	torch.save(train_dataloader, '../dataloaders/train_dataloader.pth')
-	torch.save(val_dataloader, '../dataloaders/val_dataloader.pth')
+	torch.save(train_dataloader, '../../dataloaders/train_dataloader.pth')
+	torch.save(val_dataloader, '../../dataloaders/val_dataloader.pth')
 	#torch.save(test_data_loader, '../dataloaders/test_dataloader.pth')
 
 	print("Dataloaders created!")
