@@ -1,84 +1,101 @@
 from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup
 import torch
+from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler, SequentialSampler
 import numpy as np
 import pandas as pd
 from torch import nn, optim
 from torch.utils.data import Dataset, DataLoader
-
 from pylab import rcParams
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
 from collections import defaultdict
 from textwrap import wrap
-
 import os
+import requests
+from tqdm import tqdm
 
-class AITADataset(Dataset):
+def getDataset():
+    url = "https://www.dropbox.com/s/qjmj4wq9ywz5tb7/clean_data.csv?dl=1"
+    fname = "temp_data.csv"
 
-	def __init__(self, titles, targets, tokenizer, max_len):
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(fname, 'wb') as f:
+            pbar = tqdm(total=int(r.headers['Content-Length']))
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    pbar.update(len(chunk))
 
-		self.titles = titles
-		self.targets = targets
-		self.tokenizer = tokenizer
-		self.max_len = max_len
-
-	def __len__(self):
-
-		return len(self.reviews)
-
-	def __getitem__(self, item):
-
-		title = str(self.titles[item])
-		target = self.targets[item]
-		encoding = self.tokenizer.encode_plus(
-		title,
-		add_special_tokens=True,
-		max_length=self.max_len,
-		return_token_type_ids=False,
-		pad_to_max_length=True,
-		return_attention_mask=True,
-		return_tensors='pt')
-
-		return {
-		'title_text': title,
-		'input_ids': encoding['input_ids'].flatten(),
-		'attention_mask': encoding['attention_mask'].flatten(),
-		'targets': torch.tensor(target, dtype=torch.long)
-	}
+    aita_data = pd.read_csv("temp_data.csv")
+    os.remove("temp_data.csv")    
+    return aita_data
 
 
-def create_data_loader(df, tokenizer, max_len, batch_size):
+def get_ids_and_attn(title, tokenizer, batch_size):	
 
-	ds = AITADataset(
+	input_ids,attention_masks = [],[]
+	
+	for i,post in enumerate(title):
+		if not(isinstance(post,str)):
+			print(i,type(post))
+		encoded_post = tokenizer.encode_plus(
+            text=post,
+            add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
+			max_length=512,
+            pad_to_max_length=True,         # Pad sentence to max length
+            return_attention_mask=True      # Return attention mask
+            )
+		input_ids.append(encoded_post.get('input_ids'))
+		attention_masks.append((encoded_post.get('attention_mask')))
+	input_ids,attention_masks = torch.tensor(input_ids),torch.tensor(attention_masks)
+	return input_ids,attention_masks
 
-	title=df.title.to_numpy(),
-	targets=df.is_asshole.to_numpy(),
-	tokenizer=tokenizer,
-	max_len=max_len
+def preprocess_text(aita_data):
+	aita_data["title"].str.lower()
+	aita_data["title"].str.replace(r'\\n',' ', regex=True) 
+	aita_data["title"].str.replace(r"\'t", " not")
+	aita_data["title"].str.replace(r'([\;\:\|«\n])', ' ')
+	aita_data["title"].str.strip()
 
-	)
+def create_dataloader(inputs,masks,labels,category,BATCH_SIZE):
+	data = TensorDataset(inputs,masks,labels)
+	sampler = RandomSampler(data) if category=='train' else SequentialSampler(data)
+	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE)
+	return dataloader
 
-	return DataLoader(ds,batch_size=batch_size,num_workers=4)
 
-cur_path = os.getcwd()
-file_path_aita = os.path.relpath('..\\data\\aita_clean.csv', cur_path)
+if __name__=="__main__":
+	RANDOM_SEED = 40
+	loss_fn = nn.CrossEntropyLoss()
+	np.random.seed(RANDOM_SEED)
+	torch.manual_seed(RANDOM_SEED)
+	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-RANDOM_SEED = 42
-np.random.seed(RANDOM_SEED)
-torch.manual_seed(RANDOM_SEED)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+	BATCH_SIZE = 16
+	PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
+	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 
-BATCH_SIZE = 16
-PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
-tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
+	aita_data = getDataset()
+	preprocess_text(aita_data)
 
-aita_data = pd.read_csv(file_path_aita)
+	df_train, df_test = train_test_split(aita_data,test_size=0.1,random_state=RANDOM_SEED)
+	df_train, df_val = train_test_split(df_train,test_size=0.5,random_state=RANDOM_SEED)
 
-MAX_LEN	= aita_data.title.str.len().max()
+	X_train,y_train,X_val,y_val = (df_train["title"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
+									df_val["title"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
+	train_labels = torch.tensor(y_train)
+	val_labels = torch.tensor(y_val)
 
-df_train, df_test = train_test_split(aita_data,test_size=0.1,random_state=RANDOM_SEED)
-df_val, df_test = train_test_split(df_test,test_size=0.5,random_state=RANDOM_SEED)
+	train_inputs, train_masks = get_ids_and_attn(X_train, tokenizer, BATCH_SIZE)
+	val_inputs, val_masks = get_ids_and_attn(X_val, tokenizer, BATCH_SIZE)
+	print("Data tokenized")
 
-train_data_loader = create_data_loader(df_train, tokenizer, MAX_LEN, BATCH_SIZE)
-val_data_loader = create_data_loader(df_val, tokenizer, MAX_LEN, BATCH_SIZE)
-test_data_loader = create_data_loader(df_test, tokenizer, MAX_LEN, BATCH_SIZE)
+	train_dataloader = create_dataloader(train_inputs,train_masks,train_labels,"train",BATCH_SIZE)
+	val_dataloader = create_dataloader(val_inputs,val_masks,val_labels,"val",BATCH_SIZE)
+	
+	torch.save(train_dataloader, '../../dataloaders/train_dataloader.pth')
+	torch.save(val_dataloader, '../../dataloaders/val_dataloader.pth')
+	#torch.save(test_data_loader, '../dataloaders/test_dataloader.pth')
+
+	print("Dataloaders created!")
