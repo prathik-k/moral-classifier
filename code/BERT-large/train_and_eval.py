@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import matplotlib.pyplot as plt
-from BERT_Classifier import BertClassifier
+from BERT_large_Classifier import BertLargeClassifier
 
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
@@ -24,9 +24,9 @@ def set_seed(seed_value=42):
 
 def getDataloaders(batch_size):
     try:
-        train_dataloader = torch.load("../../../dataloaders/BERT/train_dataloader_"+str(batch_size)+".pth")
-        val_dataloader = torch.load("../../../dataloaders/BERT/val_dataloader_"+str(batch_size)+".pth")
-        test_dataloader = torch.load("../../../dataloaders/BERT/train_dataloader_"+str(batch_size)+".pth")
+        train_dataloader = torch.load("../../../dataloaders/BERT-large/train_dataloader_"+str(batch_size)+".pth")
+        val_dataloader = torch.load("../../../dataloaders/BERT-large/val_dataloader_"+str(batch_size)+".pth")
+        test_dataloader = torch.load("../../../dataloaders/BERT-large/train_dataloader_"+str(batch_size)+".pth")
         return train_dataloader,val_dataloader,test_dataloader
     except:
         print("Dataloaders have not been generated!")
@@ -34,7 +34,7 @@ def getDataloaders(batch_size):
 
 def initialize(epochs=3,batch_size=16,lr=3e-5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    bert_classifier = BertClassifier().to(device)
+    bert_classifier = BertLargeClassifier().to(device)
     optimizer = AdamW(bert_classifier.parameters(),lr=lr,eps=1e-8)
     train_dataloader,val_dataloaders,_ = getDataloaders(batch_size)
     num_steps = len(train_dataloader) * epochs
@@ -48,12 +48,10 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
 
         # Measure the elapsed time of each epoch
         t0_epoch, t0_batch = time.time(), time.time()
-
         # Reset tracking variables at the beginning of each epoch
         total_loss, batch_loss, batch_counts = 0, 0, 0
         # Put the model into the training mode
         model.train()
-
         # For each batch of training data...
         for step, batch in enumerate(train_dataloader):
             batch_counts +=1
@@ -75,10 +73,8 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
                 print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
                 batch_loss, batch_counts = 0, 0
                 t0_batch = time.time()
-
         avg_train_loss = total_loss / len(train_dataloader)
         print("-"*70)
-
         if evaluation == True:
             val_loss, val_accuracy = evaluate(model, val_dataloader)
             # Print performance over the entire training data
@@ -86,11 +82,9 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
             print("-"*70)
         print("\n")
-
-    filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-    torch.save(model,"../../../trained_models/BERT/"+filename)
-    print("Training complete!")    
-
+    filename = "BERT-large_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+    torch.save(model,"../../../trained_models/BERT-large/"+filename)
+    print("Training complete!")   
 
 def evaluate(model, val_dataloader):
     """After the completion of each training epoch, measure the model's performance
@@ -157,14 +151,14 @@ def plot_roc(probs,y_true,size,epochs,lr):
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    filename = "BERT_roc_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    filename = "BERT-large_roc_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     plt.savefig(filename)
     plt.show()
 
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
-    params_dict = {'num_epochs':(3,4),'batch_size':(64,32),'learning_rates':(5e-5,2e-5)}
+    params_dict = {'num_epochs':(3,4),'batch_size':(16,8),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     with open('../../../dataloaders/all_data.pkl','rb') as file:
@@ -175,8 +169,8 @@ if __name__ == '__main__':
             for lr in params_dict['learning_rates']:                              
                 try:
                     train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                    filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-                    model = torch.load("../../../trained_models/BERT/"+filename)                    
+                    filename = "BERT-large_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".pth"
+                    model = torch.load("../../../trained_models/BERT-large"+filename)                    
                     probs = predict(model,val_dataloader)
                     plot_roc(probs, all_data['y_val'],size,epochs,lr)
                     print("ROC plots generated")

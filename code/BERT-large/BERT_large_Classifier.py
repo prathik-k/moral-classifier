@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 from transformers import BertModel
 
-class BertClassifier(nn.Module):
+class BertLargeClassifier(nn.Module):
     def __init__(self):
-        super(BertClassifier, self).__init__()
-        D_in, H, D_out = 768, 50, 2
-        self.bert = nn.DataParallel(BertModel.from_pretrained('bert-base-uncased'))
+        super(BertLargeClassifier, self).__init__()
+        D_in, H, D_out = 1024, 50, 2
+        self.bert = nn.DataParallel(BertModel.from_pretrained('bert-large-uncased'))
 
         self.classifier = nn.Sequential(
             nn.Linear(D_in, H),
