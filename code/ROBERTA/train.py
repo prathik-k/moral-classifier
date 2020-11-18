@@ -24,8 +24,8 @@ def initialize_model(epochs=4):
     optimizer = AdamW(roberta_classifier.parameters(),
                       lr=5e-5,
                       eps=1e-8)
-    train_dataloader = torch.load("../../../dataloaders/train_dataloader.pth")
-    val_dataloader = torch.load("../../../dataloaders/val_dataloader.pth")
+    train_dataloader = torch.load("../../../dataloaders/ROBERTA/train_dataloader.pth")
+    val_dataloader = torch.load("../../../dataloaders/ROBERTA/val_dataloader.pth")
 
     num_steps = len(train_dataloader) * epochs
     scheduler = get_linear_schedule_with_warmup(optimizer,num_warmup_steps=0,num_training_steps=num_steps)    
@@ -90,8 +90,8 @@ def train(model, train_dataloader, val_dataloader=None, epochs=4, evaluation=Fal
             print("-"*70)
         print("\n")
 
-    torch.save(model.state_dict(),"Roberta_model_trained.pth")
-    torch.save(model.state_dict(),"../../trained_models/Roberta_model_trained.pth")
+
+    torch.save(model.state_dict(),"../../../trained_models/ROBERTA/Roberta_model_trained.pth")
     print("Training complete!")
     
 

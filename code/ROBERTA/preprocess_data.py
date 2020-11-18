@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from transformers import RobertaModel, RobertaTokenizer, AdamW, get_linear_schedule_with_warmup
 import torch
 from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler, SequentialSampler
@@ -64,7 +65,7 @@ def preprocess_text(aita_data):
 def create_dataloader(inputs,masks,labels,category,BATCH_SIZE):
 	data = TensorDataset(inputs,masks,labels)
 	sampler = RandomSampler(data) if category=='train' else SequentialSampler(data)
-	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE)
+	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE,num_workers=10)
 	return dataloader
 
 
@@ -97,8 +98,8 @@ if __name__=="__main__":
 	train_dataloader = create_dataloader(train_inputs,train_masks,train_labels,"train",BATCH_SIZE)
 	val_dataloader = create_dataloader(val_inputs,val_masks,val_labels,"val",BATCH_SIZE)
 	
-	torch.save(train_dataloader, '../../../dataloaders/train_dataloader.pth')
-	torch.save(val_dataloader, '../../../dataloaders/val_dataloader.pth')
-	#torch.save(test_data_loader, '../dataloaders/test_dataloader.pth')
+	torch.save(train_dataloader, '../../../dataloaders/ROBERTA/train_dataloader.pth')
+	torch.save(val_dataloader, '../../../dataloaders/ROBERTA/val_dataloader.pth')
+	#torch.save(test_data_loader, '../dataloaders/ROBERTA/test_dataloader.pth')
 
 	print("Dataloaders created!")
