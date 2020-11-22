@@ -199,8 +199,8 @@ if __name__ == '__main__':
                     plot_roc(probs, all_data['y_val'],size,epochs,lr)
                     print("ROC plots generated")
                     y_pred = probs[:, 1]
-                    report = classification_report(y_true, y_pred,size,epochs,lr)
-                    classification_report_csv(report)
+                    report = classification_report(all_data['y_val'], y_pred)
+                    classification_report_csv(report,size,epochs,lr)
                     print("Classification report generated")
                 except OSError:
                     print("Model not found. Starting the training...")
