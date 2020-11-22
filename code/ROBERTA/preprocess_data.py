@@ -91,6 +91,7 @@ if __name__=="__main__":
 
 	X_train,y_train,X_val,y_val = (df_train["body"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
+<<<<<<< HEAD
 	X_test,y_test = (df_test["body"].astype(str).tolist(),torch.tensor(df_test["verdict"].values))
 
 	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,Y_test=y_test)
@@ -105,5 +106,24 @@ if __name__=="__main__":
 		print("Validation dataloader created!")
 		generate_dataloader(X_test,y_test,tokenizer,size,"test")
 		print("Testing dataloader created!")
+=======
+	X_test, y_test = (df_test["body"].astype(str).tolist(), torch.tensor(df_test["verdict"].values))
+    
+	train_labels = torch.tensor(y_train)
+	val_labels, test_labels = (torch.tensor(y_val), torch.tensor(y_test))
+    
+	train_inputs, train_masks = get_ids_and_attn(X_train, tokenizer, BATCH_SIZE)
+	val_inputs, val_masks = get_ids_and_attn(X_val, tokenizer, BATCH_SIZE)
+	test_inputs, test_masks = get_ids_and_attn(X_test, tokenizer, BATCH_SIZE)
+	print("Data tokenized")
 
+	train_dataloader = create_dataloader(train_inputs,train_masks,train_labels,"train",BATCH_SIZE)
+	val_dataloader = create_dataloader(val_inputs,val_masks,val_labels,"val",BATCH_SIZE)
+	test_dataloader = create_dataloader(test_inputs,test_masks,test_labels,"test",BATCH_SIZE)
+>>>>>>> fcab28ee2c29391d369a00fd9942c8aab9b49a17
+
+	torch.save(train_dataloader, '../../../dataloaders/ROBERTA/train_dataloader.pth')
+	torch.save(val_dataloader, '../../../dataloaders/ROBERTA/val_dataloader.pth')
+	torch.save(test_dataloader, '../../../dataloaders/ROBERTA/test_dataloader.pth')
+	
 	print("Dataloaders created!")

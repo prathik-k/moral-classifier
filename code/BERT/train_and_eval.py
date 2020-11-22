@@ -55,6 +55,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
         model.train()
 
         # For each batch of training data...
+        train_loss,val_loss = [],[]
         for step, batch in enumerate(train_dataloader):
             batch_counts +=1
             # Load batch to GPU
@@ -74,6 +75,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
                 time_elapsed = time.time() - t0_batch
                 print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
                 batch_loss, batch_counts = 0, 0
+                train_loss.append(total_loss)
                 t0_batch = time.time()
 
         avg_train_loss = total_loss / len(train_dataloader)
@@ -86,6 +88,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
             print("-"*70)
         print("\n")
+
 
     filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
     torch.save(model,"../../../trained_models/BERT/"+filename)
@@ -125,7 +128,7 @@ def evaluate(model, val_dataloader):
 def predict(model,dataloader):
     model.eval()
     all_logits = []
-    print("Fitting model on validation data")
+    print("Fitting model on test data")
     for batch in dataloader:
         # Load batch to GPU
         b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
@@ -157,19 +160,18 @@ def plot_roc(probs,y_true,size,epochs,lr):
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    filename = "BERT_roc_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    filename = "BERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     plt.savefig(filename)
     plt.show()
 
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
-    params_dict = {'num_epochs':(3,4),'batch_size':(64,32),'learning_rates':(5e-5,2e-5)}
+    params_dict = {'num_epochs':(3,4),'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    with open('../../../dataloaders/all_data.pkl','rb') as file:
-        all_data = pickle.load(file)
-    
+    with open('../../../dataloaders/all_data.pkl','rb') as f:
+        all_data = pickle.load(f)
     for epochs in params_dict['num_epochs']:
         for size in params_dict['batch_size']:
             for lr in params_dict['learning_rates']:                              
@@ -177,8 +179,8 @@ if __name__ == '__main__':
                     train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
                     filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
                     model = torch.load("../../../trained_models/BERT/"+filename)                    
-                    probs = predict(model,val_dataloader)
-                    plot_roc(probs, all_data['y_val'],size,epochs,lr)
+                    probs = predict(model,test_dataloader)
+                    plot_roc(probs, all_data['y_test'],size,epochs,lr)
                     print("ROC plots generated")
                 except OSError:
                     print("Model not found. Starting the training...")
