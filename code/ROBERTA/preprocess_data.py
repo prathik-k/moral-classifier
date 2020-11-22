@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 from transformers import RobertaModel, RobertaTokenizer, AdamW, get_linear_schedule_with_warmup
 import torch
-from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler, SequentialSampler
+from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler
 import numpy as np
 import pandas as pd
 from torch import nn, optim
@@ -12,12 +11,13 @@ from sklearn.metrics import confusion_matrix, classification_report
 from collections import defaultdict
 from textwrap import wrap
 import os
+import sys
 import requests
 from tqdm import tqdm
+import pickle
 
-if not os.path.exists('../../../dataloaders'):
-    os.mkdir('../../../dataloaders')
-    
+sys.path.append("../../dataloaders/")
+
 def getDataset():
     url = "https://www.dropbox.com/s/qjmj4wq9ywz5tb7/clean_data.csv?dl=1"
     fname = "temp_data.csv"
@@ -59,15 +59,20 @@ def preprocess_text(aita_data):
 	aita_data["body"].str.lower()
 	aita_data["body"].str.replace(r'\\n',' ', regex=True) 
 	aita_data["body"].str.replace(r"\'t", " not")
-	aita_data["body"].str.replace(r'([\;\:\|«\n])', ' ')
 	aita_data["body"].str.strip()
 
-def create_dataloader(inputs,masks,labels,category,BATCH_SIZE):
+def create_dataloader(inputs,masks,labels,BATCH_SIZE):
 	data = TensorDataset(inputs,masks,labels)
-	sampler = RandomSampler(data) if category=='train' else SequentialSampler(data)
-	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE,num_workers=10)
+	sampler = RandomSampler(data) 
+	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE)
 	return dataloader
 
+def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
+	labels = torch.tensor(y)
+	inputs,masks = get_ids_and_attn(X, tokenizer, BATCH_SIZE)
+	dataloader = create_dataloader(inputs,masks,labels,BATCH_SIZE)
+	filename = category+'_dataloader_'+str(BATCH_SIZE)+'.pth'	
+	torch.save(dataloader, '../../../dataloaders/ROBERTA/'+filename)
 
 if __name__=="__main__":
 	RANDOM_SEED = 40
@@ -75,11 +80,9 @@ if __name__=="__main__":
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-	BATCH_SIZE = 16
+	BATCH_SIZE = (32,64,128)
 	PRE_TRAINED_MODEL_NAME = 'roberta-base'
 	tokenizer = RobertaTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
-
 	aita_data = getDataset()
 	preprocess_text(aita_data)
 
@@ -88,29 +91,19 @@ if __name__=="__main__":
 
 	X_train,y_train,X_val,y_val = (df_train["body"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
-	X_test, y_test = (df_test["body"].astype(str).tolist(), torch.tensor(df_test["verdict"].values))
-    
-	train_labels = torch.tensor(y_train)
-	val_labels, test_labels = (torch.tensor(y_val), torch.tensor(y_test))
-    
-	train_inputs, train_masks = get_ids_and_attn(X_train, tokenizer, BATCH_SIZE)
-	val_inputs, val_masks = get_ids_and_attn(X_val, tokenizer, BATCH_SIZE)
-	test_inputs, test_masks = get_ids_and_attn(X_test, tokenizer, BATCH_SIZE)
-	print("Data tokenized")
+	X_test,y_test = (df_test["body"].astype(str).tolist(),torch.tensor(df_test["verdict"].values))
 
-	train_dataloader = create_dataloader(train_inputs,train_masks,train_labels,"train",BATCH_SIZE)
-	val_dataloader = create_dataloader(val_inputs,val_masks,val_labels,"val",BATCH_SIZE)
-<<<<<<< HEAD
-	
-	torch.save(train_dataloader, '../../../dataloaders/ROBERTA/train_dataloader.pth')
-	torch.save(val_dataloader, '../../../dataloaders/ROBERTA/val_dataloader.pth')
-	#torch.save(test_data_loader, '../dataloaders/ROBERTA/test_dataloader.pth')
-=======
-	test_dataloader = create_dataloader(test_inputs,test_masks,test_labels,"test",BATCH_SIZE)
-    
-	torch.save(train_dataloader, '../../../dataloaders/train_dataloader.pth')
-	torch.save(val_dataloader, '../../../dataloaders/val_dataloader.pth')
-	torch.save(test_dataloader, '../../../dataloaders/test_dataloader.pth')
->>>>>>> 5a278e58c2cdf06ba14baf40db31ddeb406497c6
+	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,Y_test=y_test)
+
+	with open('../../../dataloaders/ROBERTA/all_data.pkl','wb') as file:
+		pickle.dump(data_dict,file)
+
+	for size in BATCH_SIZE:
+		generate_dataloader(X_train,y_train,tokenizer,size,"train")
+		print("Training dataloader created!")
+		generate_dataloader(X_val,y_val,tokenizer,size,"val")
+		print("Validation dataloader created!")
+		generate_dataloader(X_test,y_test,tokenizer,size,"test")
+		print("Testing dataloader created!")
 
 	print("Dataloaders created!")
