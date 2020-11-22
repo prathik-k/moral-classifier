@@ -100,17 +100,10 @@ if __name__=="__main__":
 
 	train_dataloader = create_dataloader(train_inputs,train_masks,train_labels,"train",BATCH_SIZE)
 	val_dataloader = create_dataloader(val_inputs,val_masks,val_labels,"val",BATCH_SIZE)
-<<<<<<< HEAD
-	
+	test_dataloader = create_dataloader(test_inputs,test_masks,test_labels,"test",BATCH_SIZE)
+
 	torch.save(train_dataloader, '../../../dataloaders/ROBERTA/train_dataloader.pth')
 	torch.save(val_dataloader, '../../../dataloaders/ROBERTA/val_dataloader.pth')
-	#torch.save(test_data_loader, '../dataloaders/ROBERTA/test_dataloader.pth')
-=======
-	test_dataloader = create_dataloader(test_inputs,test_masks,test_labels,"test",BATCH_SIZE)
-    
-	torch.save(train_dataloader, '../../../dataloaders/train_dataloader.pth')
-	torch.save(val_dataloader, '../../../dataloaders/val_dataloader.pth')
-	torch.save(test_dataloader, '../../../dataloaders/test_dataloader.pth')
->>>>>>> 5a278e58c2cdf06ba14baf40db31ddeb406497c6
-
+	torch.save(test_dataloader, '../../../dataloaders/ROBERTA/test_dataloader.pth')
+	
 	print("Dataloaders created!")

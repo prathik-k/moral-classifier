@@ -72,7 +72,7 @@ def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
 	inputs,masks = get_ids_and_attn(X, tokenizer, BATCH_SIZE)
 	dataloader = create_dataloader(inputs,masks,labels,BATCH_SIZE)
 	filename = category+'_dataloader_'+str(BATCH_SIZE)+'.pth'	
-	torch.save(dataloader, '../../../dataloaders/BERT'+filename)
+	torch.save(dataloader, '../../../dataloaders/BERT/'+filename)
 
 if __name__=="__main__":
 	RANDOM_SEED = 40
@@ -81,7 +81,7 @@ if __name__=="__main__":
 	torch.manual_seed(RANDOM_SEED)
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	BATCH_SIZE = (32,64,128)
-	PRE_TRAINED_MODEL_NAME = 'bert-base-cased'
+	PRE_TRAINED_MODEL_NAME = 'bert-base-uncased'
 	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	aita_data = getDataset()
 	preprocess_text(aita_data)
@@ -93,7 +93,7 @@ if __name__=="__main__":
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
 	X_test,y_test = (df_test["body"].astype(str).tolist(),torch.tensor(df_test["verdict"].values))
 
-	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,Y_test=y_test)
+	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,y_test=y_test)
 
 	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
