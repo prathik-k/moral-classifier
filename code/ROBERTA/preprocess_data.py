@@ -88,18 +88,29 @@ if __name__=="__main__":
 
 	X_train,y_train,X_val,y_val = (df_train["body"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
+	X_test, y_test = (df_test["body"].astype(str).tolist(), torch.tensor(df_test["verdict"].values))
+    
 	train_labels = torch.tensor(y_train)
-	val_labels = torch.tensor(y_val)
-
+	val_labels, test_labels = (torch.tensor(y_val), torch.tensor(y_test))
+    
 	train_inputs, train_masks = get_ids_and_attn(X_train, tokenizer, BATCH_SIZE)
 	val_inputs, val_masks = get_ids_and_attn(X_val, tokenizer, BATCH_SIZE)
+	test_inputs, test_masks = get_ids_and_attn(X_test, tokenizer, BATCH_SIZE)
 	print("Data tokenized")
 
 	train_dataloader = create_dataloader(train_inputs,train_masks,train_labels,"train",BATCH_SIZE)
 	val_dataloader = create_dataloader(val_inputs,val_masks,val_labels,"val",BATCH_SIZE)
+<<<<<<< HEAD
 	
 	torch.save(train_dataloader, '../../../dataloaders/ROBERTA/train_dataloader.pth')
 	torch.save(val_dataloader, '../../../dataloaders/ROBERTA/val_dataloader.pth')
 	#torch.save(test_data_loader, '../dataloaders/ROBERTA/test_dataloader.pth')
+=======
+	test_dataloader = create_dataloader(test_inputs,test_masks,test_labels,"test",BATCH_SIZE)
+    
+	torch.save(train_dataloader, '../../../dataloaders/train_dataloader.pth')
+	torch.save(val_dataloader, '../../../dataloaders/val_dataloader.pth')
+	torch.save(test_dataloader, '../../../dataloaders/test_dataloader.pth')
+>>>>>>> 5a278e58c2cdf06ba14baf40db31ddeb406497c6
 
 	print("Dataloaders created!")
