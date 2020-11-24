@@ -1,6 +1,6 @@
 from transformers import AlbertModel, AlbertTokenizer, AdamW, get_linear_schedule_with_warmup
 import torch
-from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler, SequentialSampler
+from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler
 import numpy as np
 import pandas as pd
 from torch import nn, optim
@@ -11,12 +11,13 @@ from sklearn.metrics import confusion_matrix, classification_report
 from collections import defaultdict
 from textwrap import wrap
 import os
+import sys
 import requests
 from tqdm import tqdm
-import pickle 
-if not os.path.exists('../../../dataloaders'):
-    os.mkdir('../../../dataloaders')
-    
+import pickle
+
+sys.path.append("../../dataloaders/")
+
 def getDataset():
     url = "https://www.dropbox.com/s/qjmj4wq9ywz5tb7/clean_data.csv?dl=1"
     fname = "temp_data.csv"
@@ -59,7 +60,6 @@ def preprocess_text(aita_data):
 	aita_data["body"].str.lower()
 	aita_data["body"].str.replace(r'\\n',' ', regex=True) 
 	aita_data["body"].str.replace(r"\'t", " not")
-	aita_data["body"].str.replace(r'([\;\:\|«\n])', ' ')
 	aita_data["body"].str.strip()
 
 def create_dataloader(inputs,masks,labels,BATCH_SIZE):
@@ -81,11 +81,9 @@ if __name__=="__main__":
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-	BATCH_SIZE = 2 #,64,128)
-	PRE_TRAINED_MODEL_NAME = 'albert-large-v1'
+	BATCH_SIZE = (8,16,32)
+	PRE_TRAINED_MODEL_NAME = 'albert-base-v1'
 	tokenizer = AlbertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
-
 	aita_data = getDataset()
 	preprocess_text(aita_data)
 
@@ -101,12 +99,12 @@ if __name__=="__main__":
 	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
 
-	size = BATCH_SIZE
-	generate_dataloader(X_train,y_train,tokenizer,size,"train")
-	print("Training dataloader created!")
-	generate_dataloader(X_val,y_val,tokenizer,size,"val")
-	print("Validation dataloader created!")
-	generate_dataloader(X_test,y_test,tokenizer,size,"test")
-	print("Testing dataloader created!")
+	for size in BATCH_SIZE:
+		generate_dataloader(X_train,y_train,tokenizer,size,"train")
+		print("Training dataloader created!")
+		generate_dataloader(X_val,y_val,tokenizer,size,"val")
+		print("Validation dataloader created!")
+		generate_dataloader(X_test,y_test,tokenizer,size,"test")
+		print("Testing dataloader created!")
 
 	print("Dataloaders created!")
