@@ -82,7 +82,7 @@ if __name__=="__main__":
 	torch.manual_seed(RANDOM_SEED)
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-	BATCH_SIZE = 2 #,64,128)
+	BATCH_SIZE = (32,64)
 	PRE_TRAINED_MODEL_NAME = 'albert-large-v1'
 	tokenizer = AlbertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 
@@ -101,12 +101,12 @@ if __name__=="__main__":
 	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
 
-	size = BATCH_SIZE
-	generate_dataloader(X_train,y_train,tokenizer,size,"train")
-	print("Training dataloader created!")
-	generate_dataloader(X_val,y_val,tokenizer,size,"val")
-	print("Validation dataloader created!")
-	generate_dataloader(X_test,y_test,tokenizer,size,"test")
-	print("Testing dataloader created!")
+	for size in BATCH_SIZE:
+		generate_dataloader(X_train,y_train,tokenizer,size,"train")
+		print("Training dataloader created!")
+		generate_dataloader(X_val,y_val,tokenizer,size,"val")
+		print("Validation dataloader created!")
+		generate_dataloader(X_test,y_test,tokenizer,size,"test")
+		print("Testing dataloader created!")
 
 	print("Dataloaders created!")

@@ -196,24 +196,23 @@ if __name__ == '__main__':
     # albert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize_model(epochs=NUM_EPOCHS)
     # train(albert_classifier, train_dataloader, val_dataloader, epochs=NUM_EPOCHS, evaluation=True)
 
-    params_dict = {'num_epochs':(3,4),'batch_size':2,'learning_rates':(5e-5,2e-5)}
+    params_dict = {'num_epochs':(3,4),'batch_size':(64,32),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     with open('../../../dataloaders/all_data.pkl','rb') as f:
         all_data = pickle.load(f)
     for epochs in params_dict['num_epochs']:
-        #for size in params_dict['batch_size']:
-        size = params_dict['batch_size']
-        for lr in params_dict['learning_rates']:                              
-            try:
-                train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                filename = "ALBERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-                model = torch.load("../../../trained_models/ALBERT/"+filename)                    
-                probs = predict(model,test_dataloader)
-                plot_roc(probs, all_data['y_test'],size,epochs,lr)
-                print("ROC plots generated")
-            except OSError:
-                print("Model not found. Starting the training...")
-                torch.cuda.empty_cache()
-                albert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
-                train(albert_classifier, train_dataloader, val_dataloader, epochs=epochs, lr=lr, batch_size=size, evaluation=True)
+        for size in params_dict['batch_size']:
+            for lr in params_dict['learning_rates']:                              
+                try:
+                    train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
+                    filename = "ALBERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                    model = torch.load("../../../trained_models/ALBERT/"+filename)                    
+                    probs = predict(model,test_dataloader)
+                    plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                    print("ROC plots generated")
+                except OSError:
+                    print("Model not found. Starting the training...")
+                    torch.cuda.empty_cache()
+                    albert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
+                    train(albert_classifier, train_dataloader, val_dataloader, epochs=epochs, lr=lr, batch_size=size, evaluation=True)
