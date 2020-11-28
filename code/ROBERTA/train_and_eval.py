@@ -12,7 +12,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import matplotlib.pyplot as plt
-from BERT_Classifier import BertClassifier
+from sklearn.metrics import classification_report
+from roberta_classifier import RobertaClassifier
 
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
@@ -24,9 +25,9 @@ def set_seed(seed_value=42):
 
 def getDataloaders(batch_size):
     try:
-        train_dataloader = torch.load("../../../dataloaders/BERT/train_dataloader_"+str(batch_size)+".pth")
-        val_dataloader = torch.load("../../../dataloaders/BERT/val_dataloader_"+str(batch_size)+".pth")
-        test_dataloader = torch.load("../../../dataloaders/BERT/test_dataloader_"+str(batch_size)+".pth")
+        train_dataloader = torch.load("../../../dataloaders/ROBERTA/train_dataloader_"+str(batch_size)+".pth")
+        val_dataloader = torch.load("../../../dataloaders/ROBERTA/val_dataloader_"+str(batch_size)+".pth")
+        test_dataloader = torch.load("../../../dataloaders/ROBERTA/test_dataloader_"+str(batch_size)+".pth")
         return train_dataloader,val_dataloader,test_dataloader
     except:
         print("Dataloaders have not been generated!")
@@ -34,12 +35,12 @@ def getDataloaders(batch_size):
 
 def initialize(epochs=3,batch_size=16,lr=3e-5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    bert_classifier = BertClassifier().to(device)
-    optimizer = AdamW(bert_classifier.parameters(),lr=lr,eps=1e-8)
+    roberta_classifier = RobertaClassifier().to(device)
+    optimizer = AdamW(roberta_classifier.parameters(),lr=lr,eps=1e-8)
     train_dataloader,val_dataloaders,_ = getDataloaders(batch_size)
     num_steps = len(train_dataloader) * epochs
     scheduler = get_linear_schedule_with_warmup(optimizer,num_warmup_steps=0,num_training_steps=num_steps)    
-    return bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader
+    return roberta_classifier, optimizer, scheduler,train_dataloader,val_dataloader
 
 def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch_size=16, evaluation=False):
     for epoch_i in range(epochs):
@@ -55,7 +56,6 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
         model.train()
 
         # For each batch of training data...
-        train_loss,val_loss = [],[]
         for step, batch in enumerate(train_dataloader):
             batch_counts +=1
             # Load batch to GPU
@@ -75,7 +75,6 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
                 time_elapsed = time.time() - t0_batch
                 print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
                 batch_loss, batch_counts = 0, 0
-                train_loss.append(total_loss)
                 t0_batch = time.time()
 
         avg_train_loss = total_loss / len(train_dataloader)
@@ -89,9 +88,8 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             print("-"*70)
         print("\n")
 
-
-    filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-    torch.save(model,"../../../trained_models/BERT/"+filename)
+    filename = "ROBERTA_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+    torch.save(model,"../../../trained_models/ROBERTA/"+filename)
     print("Training complete!")    
 
 
@@ -128,10 +126,9 @@ def evaluate(model, val_dataloader):
 def predict(model,dataloader):
     model.eval()
     all_logits = []
-    print("Fitting model on test data")
-    
+    print("Fitting model on validation data")
     for batch in dataloader:
-        # Load batch to GPU       
+        # Load batch to GPU
         b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
         # Compute logits
         with torch.no_grad():
@@ -161,29 +158,52 @@ def plot_roc(probs,y_true,size,epochs,lr):
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    filename = "BERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    filename = "ROBERTA_roc_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     plt.savefig(filename)
     plt.show()
+
+    
+def classification_report_csv(report,size,epochs,lr):
+    report_data = []
+    lines = report.split('\n')
+    for line in lines[2:-3]:
+        row = {}
+        row_data = line.split('      ')
+        row['class'] = row_data[0]
+        row['precision'] = float(row_data[1])
+        row['recall'] = float(row_data[2])
+        row['f1_score'] = float(row_data[3])
+        row['support'] = float(row_data[4])
+        report_data.append(row)
+    dataframe = pd.DataFrame.from_dict(report_data)
+    filename = "ROBERTA_report_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
+    dataframe.to_csv(filename, index = False)
+
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
     params_dict = {'num_epochs':(3,4),'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    with open('../../../dataloaders/all_data.pkl','rb') as f:
-        all_data = pickle.load(f)
+    with open('../../../dataloaders/ROBERTA/all_data.pkl','rb') as file:
+        all_data = pickle.load(file)
+    
     for epochs in params_dict['num_epochs']:
         for size in params_dict['batch_size']:
             for lr in params_dict['learning_rates']:                              
                 try:
                     train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                    filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-                    model = torch.load("../../../trained_models/BERT/"+filename) 
-                    probs = predict(model,test_dataloader)
-                    plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                    filename = "ROBERTA_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                    model = torch.load("../../../trained_models/ROBERTA/"+filename)                    
+                    probs = predict(model,val_dataloader)
+                    plot_roc(probs, all_data['y_val'],size,epochs,lr)
                     print("ROC plots generated")
+                    y_pred = probs[:, 1]
+                    report = classification_report(all_data['y_val'], y_pred)
+                    classification_report_csv(report,size,epochs,lr)
+                    print("Classification report generated")
                 except OSError:
                     print("Model not found. Starting the training...")
                     torch.cuda.empty_cache()
-                    bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
-                    train(bert_classifier, train_dataloader, val_dataloader, epochs=epochs, lr=lr, batch_size=size, evaluation=True)
+                    roberta_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
+                    train(roberta_classifier, train_dataloader, val_dataloader, epochs=epochs, lr=lr, batch_size=size, evaluation=True)

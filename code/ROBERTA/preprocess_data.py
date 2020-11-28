@@ -88,16 +88,17 @@ if __name__=="__main__":
 	preprocess_text(aita_data)
 
 	df_train, df_test = train_test_split(aita_data,test_size=0.1,random_state=RANDOM_SEED)
-	df_train, df_val = train_test_split(df_train,test_size=0.5,random_state=RANDOM_SEED)
+	df_train, df_val = train_test_split(df_train,test_size=0.2,random_state=RANDOM_SEED)
 
 	X_train,y_train,X_val,y_val = (df_train["body"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
 	X_test,y_test = (df_test["body"].astype(str).tolist(),torch.tensor(df_test["verdict"].values))
 
-	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,Y_test=y_test)
+	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,y_test=y_test)
 
-	with open('../../../dataloaders/ROBERTA/all_data.pkl','wb') as file:
+	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
+
 
 	for size in BATCH_SIZE:
 		generate_dataloader(X_train,y_train,tokenizer,size,"train")

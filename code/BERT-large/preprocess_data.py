@@ -85,7 +85,7 @@ if __name__=="__main__":
 	preprocess_text(aita_data)
 
 	df_train, df_test = train_test_split(aita_data,test_size=0.1,random_state=RANDOM_SEED)
-	df_train, df_val = train_test_split(df_train,test_size=0.5,random_state=RANDOM_SEED)
+	df_train, df_val = train_test_split(df_train,test_size=0.2,random_state=RANDOM_SEED)
 
 	X_train,y_train,X_val,y_val = (df_train["body"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
