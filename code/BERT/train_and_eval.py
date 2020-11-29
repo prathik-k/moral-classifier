@@ -100,7 +100,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
     
     model_train_results = {"train_loss":train_loss,"val_loss":val_loss,"val_accuracies":val_accuracies}
 
-    with open("../../../trained_models/BERT/"+"BERT_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl") as f:
+    with open("../../../trained_models/BERT/"+"BERT_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl","wb") as f:
         pickle.dump(model_train_results,f)
     filename = "BERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
     torch.save(model,"../../../trained_models/BERT/"+filename)
@@ -164,16 +164,18 @@ def plot_roc(probs,y_true,size,epochs,lr):
     accuracy = accuracy_score(y_true, y_pred)
     print(f'Accuracy: {accuracy*100:.2f}%')    
     # Plot ROC AUC
-    plt.title('Receiver Operating Characteristic')
-    plt.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
-    plt.legend(loc = 'lower right')
-    plt.plot([0, 1], [0, 1],'r--')
-    plt.xlim([0, 1])
-    plt.ylim([0, 1])
-    plt.ylabel('True Positive Rate')
-    plt.xlabel('False Positive Rate')
+    figure, ax = plt.subplots()
+    ax.set_title('Receiver Operating Characteristic')
+    ax.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
+    ax.legend(loc = 'lower right')
+    ax.plot([0, 1], [0, 1],'r--')
+    ax.set_xlim([0, 1])
+    ax.set_ylim([0, 1])
+    ax.set_ylabel('True Positive Rate')
+    ax.set_xlabel('False Positive Rate')
     filename = "BERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
-    plt.savefig(filename)
+    figure.savefig(filename)
+    plt.close(figure)
     
 
 if __name__ == '__main__':
@@ -188,7 +190,7 @@ if __name__ == '__main__':
         for lr in params_dict['learning_rates']:                              
             try:
                 train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                filename = "BERT_trained_"+str(size)+"_4_"+str(int(lr*(1e5)))+"e-5.pth"
+                filename = "BERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
                 model = torch.load("../../../trained_models/BERT/"+filename) 
                 probs = predict(model,test_dataloader)
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)

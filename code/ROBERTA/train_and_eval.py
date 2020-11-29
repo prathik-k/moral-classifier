@@ -100,7 +100,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
     
     model_train_results = {"train_loss":train_loss,"val_loss":val_loss,"val_accuracies":val_accuracies}    
 
-    with open("../../../trained_models/ROBERTA/"+"ROBERTA_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl") as f:
+    with open("../../../trained_models/ROBERTA/"+"ROBERTA_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl","wb") as f:
         pickle.dump(model_train_results,f)
     filename = "ROBERTA_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
     torch.save(model,"../../../trained_models/ROBERTA/"+filename)
