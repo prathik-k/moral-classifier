@@ -194,12 +194,13 @@ if __name__ == '__main__':
                 try:
                     train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
                     filename = "ROBERTA_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                    print(filename)
                     model = torch.load("../../../trained_models/ROBERTA/"+filename)                    
-                    probs = predict(model,val_dataloader)
-                    plot_roc(probs, all_data['y_val'],size,epochs,lr)
+                    probs = predict(model,test_dataloader)
+                    plot_roc(probs, all_data['y_test'],size,epochs,lr)
                     print("ROC plots generated")
                     y_pred = probs[:, 1]
-                    report = classification_report(all_data['y_val'], y_pred)
+                    report = classification_report(all_data['y_test'], y_pred)
                     classification_report_csv(report,size,epochs,lr)
                     print("Classification report generated")
                 except OSError:
