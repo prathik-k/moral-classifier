@@ -24,9 +24,9 @@ def set_seed(seed_value=42):
 
 def getDataloaders(batch_size):
     try:
-        train_dataloader = torch.load("../../../dataloaders/BERT/train_dataloader_"+str(batch_size)+".pth")
-        val_dataloader = torch.load("../../../dataloaders/BERT/val_dataloader_"+str(batch_size)+".pth")
-        test_dataloader = torch.load("../../../dataloaders/BERT/test_dataloader_"+str(batch_size)+".pth")
+        train_dataloader = torch.load("../../../dataloaders/ALBERT/train_dataloader_"+str(batch_size)+".pth")
+        val_dataloader = torch.load("../../../dataloaders/ALBERT/val_dataloader_"+str(batch_size)+".pth")
+        test_dataloader = torch.load("../../../dataloaders/ALBERT/test_dataloader_"+str(batch_size)+".pth")
         return train_dataloader,val_dataloader,test_dataloader
     except:
         print("Dataloaders have not been generated!")
@@ -34,16 +34,18 @@ def getDataloaders(batch_size):
 
 def initialize(epochs=3,batch_size=16,lr=3e-5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    bert_classifier = BertClassifier().to(device)
-    optimizer = AdamW(bert_classifier.parameters(),lr=lr,eps=1e-8)
+    albert_classifier = AlbertClassifier().to(device)
+    optimizer = AdamW(albert_classifier.parameters(),lr=lr,eps=1e-8)
     train_dataloader,val_dataloaders,_ = getDataloaders(batch_size)
     num_steps = len(train_dataloader) * epochs
     scheduler = get_linear_schedule_with_warmup(optimizer,num_warmup_steps=0,num_training_steps=num_steps)    
-    return bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader
+    return albert_classifier, optimizer, scheduler,train_dataloader,val_dataloader
 
 def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch_size=16):
     train_loss,val_loss,val_accuracies = [],[],[]
+    
     for epoch_i in range(epochs):
+        total_sample_loss,sample_counter = 0,0
         print(f"{'Epoch':^7} | {'Batch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val Acc':^9} | {'Elapsed':^9}")
         print("-"*70)
         # Measure the elapsed time of each epoch
@@ -51,8 +53,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
         # Reset tracking variables at the beginning of each epoch
         total_loss, batch_loss, batch_counts = 0, 0, 0
         # Put the model into the training mode        
-        # For each batch of training data...        
-        sample_counter = 0
+        # For each batch of training data...       
         num_batches = len(train_dataloader)
         model.train()
         for step, batch in enumerate(train_dataloader):            
@@ -67,6 +68,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             loss = loss_fn(logits, b_labels)
             batch_loss += loss.item()
             total_loss += loss.item()
+            total_sample_loss+=loss.item()*batch_size
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
@@ -74,30 +76,34 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             if (step % 40 == 0 and step != 0) or (step == num_batches - 1):
                 time_elapsed = time.time() - t0_batch
                 print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
-                batch_loss, batch_counts = 0, 0
-                train_loss.append(total_loss)
+                batch_loss, batch_counts = 0, 0                
                 t0_batch = time.time()            
             if sample_counter%16000==0:
                 print("Now calculating validation loss and accuracy...")
                 curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
                 val_loss.append(curr_val_loss)
+                print("Train loss is ",total_sample_loss/16000," and validation loss is ",curr_val_loss)
+                train_loss.append(total_sample_loss/16000)
+                total_sample_loss = 0
                 val_accuracies.append(curr_val_accuracy)
                 model.train()
         avg_train_loss = total_loss / num_batches
         print("-"*70)
         curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
+        train_loss.append(total_sample_loss/(sample_counter%16000))
+        print("Final train loss after epoch "+str(epoch_i)+" is ",total_sample_loss/(sample_counter%16000)," and validation loss is ",curr_val_loss)
         # Print performance over the entire training data
         time_elapsed = time.time() - t0_epoch            
-        print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
+        print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {curr_val_loss:^10.6f} | {curr_val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
         print("-"*70)
         print("\n")
     
     model_train_results = {"train_loss":train_loss,"val_loss":val_loss,"val_accuracies":val_accuracies}
 
-    with open("../../../trained_models/BERT/"+"BERT_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl") as f:
+    with open("../../../trained_models/ALBERT/"+"ALBERT_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl") as f:
         pickle.dump(model_train_results,f)
-    filename = "BERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-    torch.save(model,"../../../trained_models/BERT/"+filename)
+    filename = "ALBERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+    torch.save(model,"../../../trained_models/ALBERT/"+filename)
     print("Training complete!")
 
 def evaluate(model, val_dataloader):
@@ -166,13 +172,14 @@ def plot_roc(probs,y_true,size,epochs,lr):
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    filename = "BERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    filename = "ALBERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     plt.savefig(filename)
     
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
     params_dict = {'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
+    epochs=4
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     with open('../../../dataloaders/all_data.pkl','rb') as f:
@@ -181,8 +188,8 @@ if __name__ == '__main__':
         for lr in params_dict['learning_rates']:                              
             try:
                 train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-                model = torch.load("../../../trained_models/BERT/"+filename) 
+                filename = "ALBERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                model = torch.load("../../../trained_models/ALBERT/"+filename) 
                 probs = predict(model,test_dataloader)
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
                 print("ROC plots generated")

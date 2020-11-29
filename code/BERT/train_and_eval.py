@@ -43,9 +43,9 @@ def initialize(epochs=3,batch_size=16,lr=3e-5):
 
 def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch_size=16):
     train_loss,val_loss,val_accuracies = [],[],[]
-
-    total_sample_loss,sample_counter = 0,0
+    
     for epoch_i in range(epochs):
+        total_sample_loss,sample_counter = 0,0
         print(f"{'Epoch':^7} | {'Batch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val Acc':^9} | {'Elapsed':^9}")
         print("-"*70)
         # Measure the elapsed time of each epoch
@@ -53,8 +53,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
         # Reset tracking variables at the beginning of each epoch
         total_loss, batch_loss, batch_counts = 0, 0, 0
         # Put the model into the training mode        
-        # For each batch of training data...        
-        
+        # For each batch of training data...       
         num_batches = len(train_dataloader)
         model.train()
         for step, batch in enumerate(train_dataloader):            
@@ -77,23 +76,25 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             if (step % 40 == 0 and step != 0) or (step == num_batches - 1):
                 time_elapsed = time.time() - t0_batch
                 print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
-                batch_loss, batch_counts = 0, 0
-                
+                batch_loss, batch_counts = 0, 0                
                 t0_batch = time.time()            
             if sample_counter%16000==0:
                 print("Now calculating validation loss and accuracy...")
                 curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
                 val_loss.append(curr_val_loss)
-                train_loss.append(total_sample_loss/sample_counter)
+                print("Train loss is ",total_sample_loss/16000," and validation loss is ",curr_val_loss)
+                train_loss.append(total_sample_loss/16000)
+                total_sample_loss = 0
                 val_accuracies.append(curr_val_accuracy)
                 model.train()
         avg_train_loss = total_loss / num_batches
         print("-"*70)
         curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
-        train_loss.append(total_sample_loss/sample_counter)
+        train_loss.append(total_sample_loss/(sample_counter%16000))
+        print("Final train loss after epoch "+str(epoch_i)+" is ",total_sample_loss/(sample_counter%16000)," and validation loss is ",curr_val_loss)
         # Print performance over the entire training data
         time_elapsed = time.time() - t0_epoch            
-        print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
+        print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {curr_val_loss:^10.6f} | {curr_val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
         print("-"*70)
         print("\n")
     
@@ -177,6 +178,7 @@ def plot_roc(probs,y_true,size,epochs,lr):
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
+    epochs=4
     params_dict = {'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
@@ -186,7 +188,7 @@ if __name__ == '__main__':
         for lr in params_dict['learning_rates']:                              
             try:
                 train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                filename = "BERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                filename = "BERT_trained_"+str(size)+"_4_"+str(int(lr*(1e5)))+"e-5.pth"
                 model = torch.load("../../../trained_models/BERT/"+filename) 
                 probs = predict(model,test_dataloader)
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
@@ -194,5 +196,5 @@ if __name__ == '__main__':
             except OSError:
                 print("Model not found. Starting the training...")
                 torch.cuda.empty_cache()
-                bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
+                bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=4,batch_size=size,lr=lr)
                 train(bert_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)

@@ -12,8 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import matplotlib.pyplot as plt
-from sklearn.metrics import classification_report
-from roberta_classifier import RobertaClassifier
+from ROBERTA_Classifier import RobertaClassifier
 
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
@@ -42,21 +41,23 @@ def initialize(epochs=3,batch_size=16,lr=3e-5):
     scheduler = get_linear_schedule_with_warmup(optimizer,num_warmup_steps=0,num_training_steps=num_steps)    
     return roberta_classifier, optimizer, scheduler,train_dataloader,val_dataloader
 
-def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch_size=16, evaluation=False):
+def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch_size=16):
+    train_loss,val_loss,val_accuracies = [],[],[]
+    
     for epoch_i in range(epochs):
+        total_sample_loss,sample_counter = 0,0
         print(f"{'Epoch':^7} | {'Batch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val Acc':^9} | {'Elapsed':^9}")
         print("-"*70)
-
         # Measure the elapsed time of each epoch
         t0_epoch, t0_batch = time.time(), time.time()
-
         # Reset tracking variables at the beginning of each epoch
         total_loss, batch_loss, batch_counts = 0, 0, 0
-        # Put the model into the training mode
+        # Put the model into the training mode        
+        # For each batch of training data...       
+        num_batches = len(train_dataloader)
         model.train()
-
-        # For each batch of training data...
-        for step, batch in enumerate(train_dataloader):
+        for step, batch in enumerate(train_dataloader):            
+            sample_counter+= batch_size
             batch_counts +=1
             # Load batch to GPU
             b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
@@ -67,31 +68,43 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             loss = loss_fn(logits, b_labels)
             batch_loss += loss.item()
             total_loss += loss.item()
+            total_sample_loss+=loss.item()*batch_size
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             scheduler.step()
-            if (step % 40 == 0 and step != 0) or (step == len(train_dataloader) - 1):
+            if (step % 40 == 0 and step != 0) or (step == num_batches - 1):
                 time_elapsed = time.time() - t0_batch
                 print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
-                batch_loss, batch_counts = 0, 0
-                t0_batch = time.time()
-
-        avg_train_loss = total_loss / len(train_dataloader)
+                batch_loss, batch_counts = 0, 0                
+                t0_batch = time.time()            
+            if sample_counter%16000==0:
+                print("Now calculating validation loss and accuracy...")
+                curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
+                val_loss.append(curr_val_loss)
+                print("Train loss is ",total_sample_loss/16000," and validation loss is ",curr_val_loss)
+                train_loss.append(total_sample_loss/16000)
+                total_sample_loss = 0
+                val_accuracies.append(curr_val_accuracy)
+                model.train()
+        avg_train_loss = total_loss / num_batches
         print("-"*70)
-
-        if evaluation == True:
-            val_loss, val_accuracy = evaluate(model, val_dataloader)
-            # Print performance over the entire training data
-            time_elapsed = time.time() - t0_epoch            
-            print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
-            print("-"*70)
+        curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
+        train_loss.append(total_sample_loss/(sample_counter%16000))
+        print("Final train loss after epoch "+str(epoch_i)+" is ",total_sample_loss/(sample_counter%16000)," and validation loss is ",curr_val_loss)
+        # Print performance over the entire training data
+        time_elapsed = time.time() - t0_epoch            
+        print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {curr_val_loss:^10.6f} | {curr_val_accuracy:^9.2f} | {time_elapsed:^9.2f}")
+        print("-"*70)
         print("\n")
+    
+    model_train_results = {"train_loss":train_loss,"val_loss":val_loss,"val_accuracies":val_accuracies}    
 
-    filename = "ROBERTA_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+    with open("../../../trained_models/ROBERTA/"+"ROBERTA_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl") as f:
+        pickle.dump(model_train_results,f)
+    filename = "ROBERTA_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
     torch.save(model,"../../../trained_models/ROBERTA/"+filename)
-    print("Training complete!")    
-
+    print("Training complete!")
 
 def evaluate(model, val_dataloader):
     """After the completion of each training epoch, measure the model's performance
@@ -126,9 +139,10 @@ def evaluate(model, val_dataloader):
 def predict(model,dataloader):
     model.eval()
     all_logits = []
-    print("Fitting model on validation data")
+    print("Fitting model on test data")
+    
     for batch in dataloader:
-        # Load batch to GPU
+        # Load batch to GPU       
         b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
         # Compute logits
         with torch.no_grad():
@@ -158,52 +172,29 @@ def plot_roc(probs,y_true,size,epochs,lr):
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    filename = "ROBERTA_roc_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    filename = "ROBERTA_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     plt.savefig(filename)
-    plt.show()
-
     
-def classification_report_csv(report,size,epochs,lr):
-    report_data = []
-    lines = report.split('\n')
-    for line in lines[2:-3]:
-        row = {}
-        row_data = line.split('      ')
-        row['class'] = row_data[0]
-        row['precision'] = float(row_data[1])
-        row['recall'] = float(row_data[2])
-        row['f1_score'] = float(row_data[3])
-        row['support'] = float(row_data[4])
-        report_data.append(row)
-    dataframe = pd.DataFrame.from_dict(report_data)
-    filename = "ROBERTA_report_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
-    dataframe.to_csv(filename, index = False)
-
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
-    params_dict = {'num_epochs':(3,4),'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
+    epochs=4
+    params_dict = {'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    with open('../../../dataloaders/ROBERTA/all_data.pkl','rb') as file:
-        all_data = pickle.load(file)
-    
-    for epochs in params_dict['num_epochs']:
-        for size in params_dict['batch_size']:
-            for lr in params_dict['learning_rates']:                              
-                try:
-                    train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                    filename = "ROBERTA_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
-                    model = torch.load("../../../trained_models/ROBERTA/"+filename)                    
-                    probs = predict(model,val_dataloader)
-                    plot_roc(probs, all_data['y_val'],size,epochs,lr)
-                    print("ROC plots generated")
-                    y_pred = probs[:, 1]
-                    report = classification_report(all_data['y_val'], y_pred)
-                    classification_report_csv(report,size,epochs,lr)
-                    print("Classification report generated")
-                except OSError:
-                    print("Model not found. Starting the training...")
-                    torch.cuda.empty_cache()
-                    roberta_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
-                    train(roberta_classifier, train_dataloader, val_dataloader, epochs=epochs, lr=lr, batch_size=size, evaluation=True)
+    with open('../../../dataloaders/all_data.pkl','rb') as f:
+        all_data = pickle.load(f)
+    for size in params_dict['batch_size']:
+        for lr in params_dict['learning_rates']:                              
+            try:
+                train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
+                filename = "ROBERTA_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                model = torch.load("../../../trained_models/ROBERTA/"+filename) 
+                probs = predict(model,test_dataloader)
+                plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                print("ROC plots generated")
+            except OSError:
+                print("Model not found. Starting the training...")
+                torch.cuda.empty_cache()
+                bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
+                train(bert_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)
