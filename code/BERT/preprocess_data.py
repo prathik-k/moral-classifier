@@ -32,6 +32,7 @@ def getDataset():
                     pbar.update(len(chunk))
 
     aita_data = pd.read_csv("temp_data.csv")
+    aita_data = aita_data[:1000]
     os.remove("temp_data.csv")    
     return aita_data
 
