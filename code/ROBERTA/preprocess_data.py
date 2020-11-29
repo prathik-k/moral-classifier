@@ -65,7 +65,7 @@ def preprocess_text(aita_data):
 def create_dataloader(inputs,masks,labels,BATCH_SIZE):
 	data = TensorDataset(inputs,masks,labels)
 	sampler = RandomSampler(data) 
-	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE)
+	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE,num_workers=22)
 	return dataloader
 
 def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
@@ -81,23 +81,24 @@ if __name__=="__main__":
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-	BATCH_SIZE = (32,64,128)
+	BATCH_SIZE = (32,64)
 	PRE_TRAINED_MODEL_NAME = 'roberta-base'
 	tokenizer = RobertaTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	aita_data = getDataset()
 	preprocess_text(aita_data)
 
 	df_train, df_test = train_test_split(aita_data,test_size=0.1,random_state=RANDOM_SEED)
-	df_train, df_val = train_test_split(df_train,test_size=0.5,random_state=RANDOM_SEED)
+	df_train, df_val = train_test_split(df_train,test_size=0.2,random_state=RANDOM_SEED)
 
 	X_train,y_train,X_val,y_val = (df_train["body"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
 	X_test,y_test = (df_test["body"].astype(str).tolist(),torch.tensor(df_test["verdict"].values))
 
-	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,Y_test=y_test)
+	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,y_test=y_test)
 
-	with open('../../../dataloaders/ROBERTA/all_data.pkl','wb') as file:
+	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
+
 
 	for size in BATCH_SIZE:
 		generate_dataloader(X_train,y_train,tokenizer,size,"train")
