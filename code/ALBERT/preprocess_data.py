@@ -1,4 +1,4 @@
-from transformers import BertModel, BertTokenizer, AdamW, get_linear_schedule_with_warmup
+from transformers import AlbertModel, AlbertTokenizer, AdamW, get_linear_schedule_with_warmup
 import torch
 from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler
 import numpy as np
@@ -36,16 +36,19 @@ def getDataset():
     return aita_data
 
 
-def get_ids_and_attn(body, tokenizer, batch_size):
-	input_ids,attention_masks = [],[]	
+def get_ids_and_attn(body, tokenizer, batch_size):	
+
+	input_ids,attention_masks = [],[]
+	
 	for i,post in enumerate(body):
 		if not(isinstance(post,str)):
 			print(i,type(post))
 		encoded_post = tokenizer.encode_plus(
             text=post,
             add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
-			max_length=512,
+			max_length=64,
             pad_to_max_length=True,         # Pad sentence to max length
+            truncation=True,
             return_attention_mask=True      # Return attention mask
             )
 		input_ids.append(encoded_post.get('input_ids'))
@@ -62,7 +65,7 @@ def preprocess_text(aita_data):
 def create_dataloader(inputs,masks,labels,BATCH_SIZE):
 	data = TensorDataset(inputs,masks,labels)
 	sampler = RandomSampler(data) 
-	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE)
+	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE, num_workers=22)
 	return dataloader
 
 def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
@@ -70,7 +73,7 @@ def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
 	inputs,masks = get_ids_and_attn(X, tokenizer, BATCH_SIZE)
 	dataloader = create_dataloader(inputs,masks,labels,BATCH_SIZE)
 	filename = category+'_dataloader_'+str(BATCH_SIZE)+'.pth'	
-	torch.save(dataloader, '../../../dataloaders/BERT-large/'+filename)
+	torch.save(dataloader, '../../../dataloaders/ALBERT/'+filename)
 
 if __name__=="__main__":
 	RANDOM_SEED = 40
@@ -78,9 +81,9 @@ if __name__=="__main__":
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-	BATCH_SIZE = (8,16)
-	PRE_TRAINED_MODEL_NAME = 'bert-large-uncased'
-	tokenizer = BertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
+	BATCH_SIZE = (64,32)
+	PRE_TRAINED_MODEL_NAME = 'albert-base-v1'
+	tokenizer = AlbertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	aita_data = getDataset()
 	preprocess_text(aita_data)
 
@@ -91,16 +94,17 @@ if __name__=="__main__":
 									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
 	X_test,y_test = (df_test["body"].astype(str).tolist(),torch.tensor(df_test["verdict"].values))
 
-	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,Y_test=y_test)
+	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,y_test=y_test)
 
 	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
 
 	for size in BATCH_SIZE:
 		generate_dataloader(X_train,y_train,tokenizer,size,"train")
-		print("Training dataloader for size ",size, " created!")
+		print("Training dataloader created!")
 		generate_dataloader(X_val,y_val,tokenizer,size,"val")
-		print("Validation dataloader for size ",size, " created!")
+		print("Validation dataloader created!")
 		generate_dataloader(X_test,y_test,tokenizer,size,"test")
-		print("Testing dataloader for size ",size, " created!")
+		print("Testing dataloader created!")
+
 	print("Dataloaders created!")

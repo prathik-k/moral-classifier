@@ -26,7 +26,7 @@ def getDataloaders(batch_size):
     try:
         train_dataloader = torch.load("../../../dataloaders/BERT-large/train_dataloader_"+str(batch_size)+".pth")
         val_dataloader = torch.load("../../../dataloaders/BERT-large/val_dataloader_"+str(batch_size)+".pth")
-        test_dataloader = torch.load("../../../dataloaders/BERT-large/train_dataloader_"+str(batch_size)+".pth")
+        test_dataloader = torch.load("../../../dataloaders/BERT-large/test_dataloader_"+str(batch_size)+".pth")
         return train_dataloader,val_dataloader,test_dataloader
     except:
         print("Dataloaders have not been generated!")
@@ -158,7 +158,7 @@ def plot_roc(probs,y_true,size,epochs,lr):
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
-    params_dict = {'num_epochs':(3,4),'batch_size':(16,8),'learning_rates':(5e-5,2e-5)}
+    params_dict = {'num_epochs':(3,4),'batch_size':(8,16),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     with open('../../../dataloaders/all_data.pkl','rb') as file:
