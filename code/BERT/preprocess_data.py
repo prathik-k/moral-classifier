@@ -64,7 +64,7 @@ def preprocess_text(aita_data):
 def create_dataloader(inputs,masks,labels,BATCH_SIZE):
 	data = TensorDataset(inputs,masks,labels)
 	sampler = RandomSampler(data) 
-	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE,num_workers=10)
+	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE,num_workers=22)
 	return dataloader
 
 def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):

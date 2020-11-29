@@ -12,7 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import matplotlib.pyplot as plt
-from BERT_Classifier import BertClassifier
+from ALBERT_Classifier import AlbertClassifier
 
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
@@ -43,8 +43,6 @@ def initialize(epochs=3,batch_size=16,lr=3e-5):
 
 def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch_size=16):
     train_loss,val_loss,val_accuracies = [],[],[]
-
-    total_sample_loss,sample_counter = 0,0
     for epoch_i in range(epochs):
         print(f"{'Epoch':^7} | {'Batch':^7} | {'Train Loss':^12} | {'Val Loss':^10} | {'Val Acc':^9} | {'Elapsed':^9}")
         print("-"*70)
@@ -54,7 +52,7 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
         total_loss, batch_loss, batch_counts = 0, 0, 0
         # Put the model into the training mode        
         # For each batch of training data...        
-        
+        sample_counter = 0
         num_batches = len(train_dataloader)
         model.train()
         for step, batch in enumerate(train_dataloader):            
@@ -69,7 +67,6 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
             loss = loss_fn(logits, b_labels)
             batch_loss += loss.item()
             total_loss += loss.item()
-            total_sample_loss+=loss.item()*batch_size
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
@@ -78,19 +75,17 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
                 time_elapsed = time.time() - t0_batch
                 print(f"{epoch_i + 1:^7} | {step:^7} | {batch_loss / batch_counts:^12.6f} | {'-':^10} | {'-':^9} | {time_elapsed:^9.2f}")
                 batch_loss, batch_counts = 0, 0
-                
+                train_loss.append(total_loss)
                 t0_batch = time.time()            
             if sample_counter%16000==0:
                 print("Now calculating validation loss and accuracy...")
                 curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
                 val_loss.append(curr_val_loss)
-                train_loss.append(total_sample_loss/sample_counter)
                 val_accuracies.append(curr_val_accuracy)
                 model.train()
         avg_train_loss = total_loss / num_batches
         print("-"*70)
         curr_val_loss, curr_val_accuracy = evaluate(model, val_dataloader)
-        train_loss.append(total_sample_loss/sample_counter)
         # Print performance over the entire training data
         time_elapsed = time.time() - t0_epoch            
         print(f"{epoch_i + 1:^7} | {'-':^7} | {avg_train_loss:^12.6f} | {val_loss:^10.6f} | {val_accuracy:^9.2f} | {time_elapsed:^9.2f}")

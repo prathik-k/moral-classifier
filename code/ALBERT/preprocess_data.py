@@ -1,4 +1,4 @@
-from transformers import RobertaModel, RobertaTokenizer, AdamW, get_linear_schedule_with_warmup
+from transformers import AlbertModel, AlbertTokenizer, AdamW, get_linear_schedule_with_warmup
 import torch
 from torch.utils.data import Dataset, DataLoader,TensorDataset, DataLoader, RandomSampler
 import numpy as np
@@ -32,7 +32,6 @@ def getDataset():
                     pbar.update(len(chunk))
 
     aita_data = pd.read_csv("temp_data.csv")
-#     aita_data = aita_data[:1000]
     os.remove("temp_data.csv")    
     return aita_data
 
@@ -47,8 +46,9 @@ def get_ids_and_attn(body, tokenizer, batch_size):
 		encoded_post = tokenizer.encode_plus(
             text=post,
             add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
-			max_length=512,
+			max_length=64,
             pad_to_max_length=True,         # Pad sentence to max length
+            truncation=True,
             return_attention_mask=True      # Return attention mask
             )
 		input_ids.append(encoded_post.get('input_ids'))
@@ -65,7 +65,7 @@ def preprocess_text(aita_data):
 def create_dataloader(inputs,masks,labels,BATCH_SIZE):
 	data = TensorDataset(inputs,masks,labels)
 	sampler = RandomSampler(data) 
-	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE,num_workers=22)
+	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE, num_workers=22)
 	return dataloader
 
 def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
@@ -73,7 +73,7 @@ def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
 	inputs,masks = get_ids_and_attn(X, tokenizer, BATCH_SIZE)
 	dataloader = create_dataloader(inputs,masks,labels,BATCH_SIZE)
 	filename = category+'_dataloader_'+str(BATCH_SIZE)+'.pth'	
-	torch.save(dataloader, '../../../dataloaders/ROBERTA/'+filename)
+	torch.save(dataloader, '../../../dataloaders/ALBERT/'+filename)
 
 if __name__=="__main__":
 	RANDOM_SEED = 40
@@ -81,9 +81,9 @@ if __name__=="__main__":
 	np.random.seed(RANDOM_SEED)
 	torch.manual_seed(RANDOM_SEED)
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-	BATCH_SIZE = (32,64)
-	PRE_TRAINED_MODEL_NAME = 'roberta-base'
-	tokenizer = RobertaTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
+	BATCH_SIZE = (64,32)
+	PRE_TRAINED_MODEL_NAME = 'albert-base-v1'
+	tokenizer = AlbertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	aita_data = getDataset()
 	preprocess_text(aita_data)
 
@@ -98,7 +98,6 @@ if __name__=="__main__":
 
 	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
-
 
 	for size in BATCH_SIZE:
 		generate_dataloader(X_train,y_train,tokenizer,size,"train")
