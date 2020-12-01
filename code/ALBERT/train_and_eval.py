@@ -1,7 +1,7 @@
 import sys
 sys.path.append('../')
 from sklearn.metrics import accuracy_score, roc_curve, auc,classification_report
-
+import pandas as pd
 from transformers import AdamW, get_linear_schedule_with_warmup
 import pickle
 import random
@@ -180,18 +180,18 @@ def plot_roc(probs,y_true,size,epochs,lr):
 def classification_report_csv(report,size,epochs,lr):
     report_data = []
     lines = report.split('\n')
-    for line in lines[2:-3]:
+    for line in lines[2:4]:
         row = {}
         row_data = line.split('      ')
-        row['class'] = row_data[0]
-        row['precision'] = float(row_data[1])
-        row['recall'] = float(row_data[2])
-        row['f1_score'] = float(row_data[3])
-        row['support'] = float(row_data[4])
+        row['class'] = row_data[1]
+        row['precision'] = float(row_data[2])
+        row['recall'] = float(row_data[3])
+        row['f1_score'] = float(row_data[4])
+        row['support'] = float(row_data[5])
         report_data.append(row)
     dataframe = pd.DataFrame.from_dict(report_data)
     filename = "ALBERT_report_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
-    dataframe.to_csv(filename, index = False)    
+    dataframe.to_csv(filename, index = False)  
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
@@ -209,8 +209,8 @@ if __name__ == '__main__':
                 model = torch.load("../../../trained_models/ALBERT/"+filename) 
                 probs = predict(model,test_dataloader)
                 y_pred = probs[:, 1]
-                print(y_pred,all_data['y_test'])
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                y_pred = np.where(y_pred>0.5, 1, 0)
                 report = classification_report(all_data['y_test'], y_pred)
                 classification_report_csv(report,size,epochs,lr)
                 print("ROC plots generated")
