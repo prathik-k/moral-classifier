@@ -1,6 +1,6 @@
 import sys
 sys.path.append('../')
-from sklearn.metrics import accuracy_score, roc_curve, auc
+from sklearn.metrics import accuracy_score, roc_curve, auc, classification_report
 
 from transformers import AdamW, get_linear_schedule_with_warmup
 import pickle
@@ -206,7 +206,9 @@ if __name__ == '__main__':
                 filename = "ROBERTA_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
                 model = torch.load("../../../trained_models/ROBERTA/"+filename) 
                 probs = predict(model,test_dataloader)
+                y_pred = probs[:, 1]
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                report = classification_report(all_data['y_test'], y_pred)
                 classification_report_csv(report,size,epochs,lr)
                 print("ROC plots generated")
             except OSError:

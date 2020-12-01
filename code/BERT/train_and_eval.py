@@ -1,6 +1,6 @@
 import sys
 sys.path.append('../')
-from sklearn.metrics import accuracy_score, roc_curve, auc
+from sklearn.metrics import accuracy_score, roc_curve, auc, classification_report
 
 from transformers import AdamW, get_linear_schedule_with_warmup
 import pickle
@@ -176,7 +176,22 @@ def plot_roc(probs,y_true,size,epochs,lr):
     filename = "BERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     figure.savefig(filename)
     plt.close(figure)
-    
+
+def classification_report_csv(report,size,epochs,lr):
+    report_data = []
+    lines = report.split('\n')
+    for line in lines[2:-3]:
+        row = {}
+        row_data = line.split('      ')
+        row['class'] = row_data[0]
+        row['precision'] = float(row_data[1])
+        row['recall'] = float(row_data[2])
+        row['f1_score'] = float(row_data[3])
+        row['support'] = float(row_data[4])
+        report_data.append(row)
+    dataframe = pd.DataFrame.from_dict(report_data)
+    filename = "BERT_report_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
+    dataframe.to_csv(filename, index = False)     
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
@@ -193,7 +208,10 @@ if __name__ == '__main__':
                 filename = "BERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
                 model = torch.load("../../../trained_models/BERT/"+filename) 
                 probs = predict(model,test_dataloader)
+                y_pred = probs[:, 1]
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                report = classification_report(all_data['y_test'], y_pred)
+                classification_report_csv(report,size,epochs,lr)
                 print("ROC plots generated")
             except OSError:
                 print("Model not found. Starting the training...")
