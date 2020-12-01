@@ -208,6 +208,7 @@ if __name__ == '__main__':
                 probs = predict(model,test_dataloader)
                 y_pred = probs[:, 1]
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                y_pred = np.where(y_pred>0.5, 1, 0)
                 report = classification_report(all_data['y_test'], y_pred)
                 classification_report_csv(report,size,epochs,lr)
                 print("ROC plots generated")
