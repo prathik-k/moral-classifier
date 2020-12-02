@@ -46,10 +46,10 @@ def get_ids_and_attn(body, tokenizer, batch_size):
 			print(i,type(post))
 		encoded_post = tokenizer.encode_plus(
             text=post,
-            add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
+            add_special_tokens=True,        
 			max_length=512,
-            pad_to_max_length=True,         # Pad sentence to max length
-            return_attention_mask=True      # Return attention mask
+            pad_to_max_length=True,         
+            return_attention_mask=True      
             )
 		input_ids.append(encoded_post.get('input_ids'))
 		attention_masks.append((encoded_post.get('attention_mask')))
