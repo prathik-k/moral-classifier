@@ -34,12 +34,12 @@ def getDataloaders(batch_size):
 
 def initialize(epochs=3,batch_size=16,lr=3e-5):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    bert_classifier = BertClassifier().to(device)
-    optimizer = AdamW(bert_classifier.parameters(),lr=lr,eps=1e-8)
+    albert_classifier = AlbertClassifier().to(device)
+    optimizer = AdamW(albert_classifier.parameters(),lr=lr,eps=1e-8)
     train_dataloader,val_dataloaders,_ = getDataloaders(batch_size)
     num_steps = len(train_dataloader) * epochs
     scheduler = get_linear_schedule_with_warmup(optimizer,num_warmup_steps=0,num_training_steps=num_steps)    
-    return bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader
+    return albert_classifier, optimizer, scheduler,train_dataloader,val_dataloader
 
 def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch_size=16):
     train_loss,val_loss,val_accuracies = [],[],[]
@@ -217,5 +217,5 @@ if __name__ == '__main__':
             except OSError:
                 print("Model not found. Starting the training...")
                 torch.cuda.empty_cache()
-                bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=4,batch_size=size,lr=lr)
-                train(bert_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)
+                albert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=4,batch_size=size,lr=lr)
+                train(albert_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)
