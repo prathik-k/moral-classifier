@@ -44,10 +44,10 @@ def get_ids_and_attn(body, tokenizer, batch_size):
 			print(i,type(post))
 		encoded_post = tokenizer.encode_plus(
             text=post,
-            add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
+            add_special_tokens=True,        
 			max_length=512,
-            pad_to_max_length=True,         # Pad sentence to max length
-            return_attention_mask=True      # Return attention mask
+            pad_to_max_length=True,         
+            return_attention_mask=True      
             )
 		input_ids.append(encoded_post.get('input_ids'))
 		attention_masks.append((encoded_post.get('attention_mask')))
@@ -60,12 +60,15 @@ def preprocess_text(aita_data):
 	aita_data["body"].str.replace(r"\'t", " not")
 	aita_data["body"].str.strip()
 
+#Function to create the torch dataloader
+
 def create_dataloader(inputs,masks,labels,BATCH_SIZE):
 	data = TensorDataset(inputs,masks,labels)
 	sampler = RandomSampler(data) 
 	dataloader = DataLoader(data, sampler=sampler, batch_size=BATCH_SIZE,num_workers=22)
 	return dataloader
 
+#Function to save the generated dataloader
 def generate_dataloader(X,y,tokenizer,BATCH_SIZE,category):
 	labels = torch.tensor(y)
 	inputs,masks = get_ids_and_attn(X, tokenizer, BATCH_SIZE)
@@ -87,7 +90,7 @@ if __name__=="__main__":
 
 	X = aita_data["body"].astype(str).tolist()
 	y = aita_data["verdict"].values
-
+        #Stratification is performed to evenly distribute samples class-wise in the train and test sets.
 	X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.1,random_state=RANDOM_SEED,stratify=y)
 	X_train,X_val,y_train,y_val = train_test_split(X_train,y_train,test_size=0.1,random_state=RANDOM_SEED,stratify=y_train)
 	y_train,y_val,y_test = torch.tensor(y_train),torch.tensor(y_val),torch.tensor(y_test)
