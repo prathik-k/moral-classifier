@@ -89,7 +89,7 @@ if __name__=="__main__":
 	preprocess_text(aita_data)
 	X = aita_data["body"].astype(str).tolist()
 	y = aita_data["verdict"].values
-	X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.1,random_state=RANDOM_SEED,stratify=y)
+	X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.2,random_state=RANDOM_SEED,stratify=y)
 	X_train,X_val,y_train,y_val = train_test_split(X_train,y_train,test_size=0.1,random_state=RANDOM_SEED,stratify=y_train)
 	y_train,y_val,y_test = torch.tensor(y_train),torch.tensor(y_val),torch.tensor(y_test)
 	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,y_test=y_test)
