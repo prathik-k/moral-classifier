@@ -162,28 +162,25 @@ def plot_roc(probs,y_true,size,epochs,lr):
     figure.savefig(filename)
     plt.close(figure)
 
-'''
-def classification_report_csv(report,size,epochs,lr):
-    report_data = []
-    lines = report.split('\n')
-    for line in lines[2:4]:
-        row = {}
-        row_data = line.split('      ')
-        row['class'] = row_data[1]
-        row['precision'] = float(row_data[2])
-        row['recall'] = float(row_data[3])
-        row['f1_score'] = float(row_data[4])
-        row['support'] = float(row_data[5])
-        report_data.append(row)
-    dataframe = pd.DataFrame.from_dict(report_data)
-    filename = "../../../trained_models/BERT/BERT_report_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
-    dataframe.to_csv(filename, index = False)    
-'''
 def generate_result_csv(textdata,actual_verdict,prediction,logits):
     all_results = {"Text":textdata,"Actual Verdict":actual_verdict,"Predicted Verdict":prediction,"Logits":logits}
     results_df = pd.DataFrame(data=all_results)
     filename = "../../../trained_models/BERT/BERT_result_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
     results_df.to_csv(filename)
+
+def plot_lc(filename):
+    with open(filename,'rb') as f:
+        lc_data = pickle.load(f)
+    fig, ax = plt.subplots()
+    train_losses = [lc_data['train_loss'][i] for i in range(len(lc_data['train_loss'])) if i not in [4,9,14,19]]
+    val_losses = lc_data['val_loss']
+    xvals = 16000*np.arange(len(train_losses))
+    ax.plot(xvals,train_losses,'b',label='Training loss')    
+    ax.plot(xvals,val_losses,'r',label='Validation loss') 
+    ax.legend()
+    ax.set_xlabel("Number of iterations")
+    ax.set_ylabel("Loss")
+    plt.show()
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
@@ -198,6 +195,9 @@ if __name__ == '__main__':
             try:
                 train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
                 filename = "BERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                lc_data_file = "../../../trained_models/BERT/BERT_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl"
+                plot_lc(lc_data_file)
+                
                 model = torch.load("../../../trained_models/BERT/"+filename) 
                 probs = predict(model,test_dataloader)
                 y_pred = probs[:, 1]
@@ -205,8 +205,7 @@ if __name__ == '__main__':
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
                 y_pred = np.where(y_pred>0.5, 1, 0)
                 generate_result_csv(all_data['X_test'],all_data['y_test'],y_pred,logits)
-                report = classification_report(all_data['y_test'], y_pred)
-                #classification_report_csv(report,size,epochs,lr)
+                
                 print("ROC plots generated")
             except OSError:
                 print("Model not found. Starting the training...")

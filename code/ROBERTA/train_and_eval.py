@@ -176,28 +176,12 @@ def plot_roc(probs,y_true,size,epochs,lr):
     filename = "../../../trained_models/ROBERTA/ROBERTA_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     plt.savefig(filename)
 
-'''
-def classification_report_csv(report,size,epochs,lr):
-    report_data = []
-    lines = report.split('\n')
-    for line in lines[2:4]:
-        row = {}
-        row_data = line.split('      ')
-        row['class'] = row_data[1]
-        row['precision'] = float(row_data[2])
-        row['recall'] = float(row_data[3])
-        row['f1_score'] = float(row_data[4])
-        row['support'] = float(row_data[5])
-        report_data.append(row)
-    dataframe = pd.DataFrame.from_dict(report_data)
-    filename = "ROBERTA_report_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
-    dataframe.to_csv(filename, index = False)
-'''
 def generate_result_csv(textdata,actual_verdict,prediction,logits):
     all_results = {"Text":textdata,"Actual Verdict":actual_verdict,"Predicted Verdict":prediction,"Logits":logits}
     results_df = pd.DataFrame(data=all_results)
     filename = "../../../trained_models/ROBERTA/ROBERTA_result_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
     results_df.to_csv(filename)
+    
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
     epochs=4
@@ -217,9 +201,7 @@ if __name__ == '__main__':
                 logits = copy.copy(y_pred)
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
                 y_pred = np.where(y_pred>0.5, 1, 0)
-                generate_result_csv(all_data['X_test'],all_data['y_test'],y_pred,logits)
-                #report = classification_report(all_data['y_test'], y_pred)
-                #classification_report_csv(report,size,epochs,lr)
+                generate_result_csv(all_data['X_test'],all_data['y_test'],y_pred,logits)                
                 print("ROC plots generated")
             except OSError:
                 print("Model not found. Starting the training...")
