@@ -1,10 +1,11 @@
 import sys
 sys.path.append('../')
-from sklearn.metrics import accuracy_score, roc_curve, auc
-
+from sklearn.metrics import accuracy_score, roc_curve, auc, classification_report
+import pandas as pd
 from transformers import AdamW, get_linear_schedule_with_warmup
 import pickle
 import random
+import copy
 import time
 import numpy as np 
 import torch
@@ -172,10 +173,15 @@ def plot_roc(probs,y_true,size,epochs,lr):
     plt.ylim([0, 1])
     plt.ylabel('True Positive Rate')
     plt.xlabel('False Positive Rate')
-    filename = "ROBERTA_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    filename = "../../../trained_models/ROBERTA/ROBERTA_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     plt.savefig(filename)
-    
 
+def generate_result_csv(textdata,actual_verdict,prediction,logits):
+    all_results = {"Text":textdata,"Actual Verdict":actual_verdict,"Predicted Verdict":prediction,"Logits":logits}
+    results_df = pd.DataFrame(data=all_results)
+    filename = "../../../trained_models/ROBERTA/ROBERTA_result_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
+    results_df.to_csv(filename)
+    
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
     epochs=4
@@ -191,10 +197,14 @@ if __name__ == '__main__':
                 filename = "ROBERTA_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
                 model = torch.load("../../../trained_models/ROBERTA/"+filename) 
                 probs = predict(model,test_dataloader)
+                y_pred = probs[:, 1]
+                logits = copy.copy(y_pred)
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                y_pred = np.where(y_pred>0.5, 1, 0)
+                generate_result_csv(all_data['X_test'],all_data['y_test'],y_pred,logits)                
                 print("ROC plots generated")
             except OSError:
                 print("Model not found. Starting the training...")
                 torch.cuda.empty_cache()
-                bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
-                train(bert_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)
+                roberta_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
+                train(roberta_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)

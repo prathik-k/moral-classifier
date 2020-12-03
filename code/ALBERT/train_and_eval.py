@@ -1,12 +1,13 @@
 import sys
 sys.path.append('../')
-from sklearn.metrics import accuracy_score, roc_curve, auc
-
+from sklearn.metrics import accuracy_score, roc_curve, auc,classification_report
+import pandas as pd
 from transformers import AdamW, get_linear_schedule_with_warmup
 import pickle
 import random
 import time
 import numpy as np 
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -142,15 +143,11 @@ def predict(model,dataloader):
     print("Fitting model on test data")
     
     for batch in dataloader:
-        # Load batch to GPU       
         b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
-        # Compute logits
         with torch.no_grad():
             logits = model(b_input_ids, b_attn_mask)
         all_logits.append(logits)    
-    # Concatenate logits from each batch
     all_logits = torch.cat(all_logits, dim=0)
-    # Apply softmax to calculate probabilities
     probs = F.softmax(all_logits, dim=1).cpu().numpy()
     return probs
 
@@ -164,22 +161,29 @@ def plot_roc(probs,y_true,size,epochs,lr):
     accuracy = accuracy_score(y_true, y_pred)
     print(f'Accuracy: {accuracy*100:.2f}%')    
     # Plot ROC AUC
-    plt.title('Receiver Operating Characteristic')
-    plt.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
-    plt.legend(loc = 'lower right')
-    plt.plot([0, 1], [0, 1],'r--')
-    plt.xlim([0, 1])
-    plt.ylim([0, 1])
-    plt.ylabel('True Positive Rate')
-    plt.xlabel('False Positive Rate')
-    filename = "ALBERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
-    plt.savefig(filename)
-    
+    figure, ax = plt.subplots()
+    ax.set_title('Receiver Operating Characteristic')
+    ax.plot(fpr, tpr, 'b', label = 'AUC = %0.2f' % roc_auc)
+    ax.legend(loc = 'lower right')
+    ax.plot([0, 1], [0, 1],'r--')
+    ax.set_xlim([0, 1])
+    ax.set_ylim([0, 1])
+    ax.set_ylabel('True Positive Rate')
+    ax.set_xlabel('False Positive Rate')
+    filename = "../../../trained_models/ALBERT/ALBERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    figure.savefig(filename)
+    plt.close(figure)
+
+def generate_result_csv(textdata,actual_verdict,prediction,logits):
+    all_results = {"Text":textdata,"Actual Verdict":actual_verdict,"Predicted Verdict":prediction,"Logits":logits}
+    results_df = pd.DataFrame(data=all_results)
+    filename = "../../../trained_models/ALBERT/ALBERT_result_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
+    results_df.to_csv(filename)
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
-    params_dict = {'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
     epochs=4
+    params_dict = {'batch_size':(32,64),'learning_rates':(5e-5,2e-5)}
     loss_fn = nn.CrossEntropyLoss()
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     with open('../../../dataloaders/all_data.pkl','rb') as f:
@@ -188,13 +192,19 @@ if __name__ == '__main__':
         for lr in params_dict['learning_rates']:                              
             try:
                 train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
-                filename = "ALBERT_trained_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                filename = "ALBERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
                 model = torch.load("../../../trained_models/ALBERT/"+filename) 
                 probs = predict(model,test_dataloader)
+                y_pred = probs[:, 1]
+                logits = copy.copy(y_pred)
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                y_pred = np.where(y_pred>0.5, 1, 0)
+                generate_result_csv(all_data['X_test'],all_data['y_test'],y_pred,logits)
+                report = classification_report(all_data['y_test'], y_pred)
+                #classification_report_csv(report,size,epochs,lr)
                 print("ROC plots generated")
             except OSError:
                 print("Model not found. Starting the training...")
                 torch.cuda.empty_cache()
-                bert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=epochs,batch_size=size,lr=lr)
-                train(bert_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)
+                albert_classifier, optimizer, scheduler,train_dataloader,val_dataloader = initialize(epochs=4,batch_size=size,lr=lr)
+                train(albert_classifier, train_dataloader, val_dataloader, epochs=4, lr=lr, batch_size=size)

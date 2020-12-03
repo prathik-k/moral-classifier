@@ -1,7 +1,7 @@
 import sys
 sys.path.append('../')
-from sklearn.metrics import accuracy_score, roc_curve, auc
-
+from sklearn.metrics import accuracy_score, roc_curve, auc, classification_report
+import pandas as pd
 from transformers import AdamW, get_linear_schedule_with_warmup
 import pickle
 import random
@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import sys
 import matplotlib.pyplot as plt
 from BERT_Classifier import BertClassifier
+import copy
 
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
@@ -52,18 +53,14 @@ def train(model, train_dataloader, val_dataloader=None, epochs=3, lr=3e-5, batch
         t0_epoch, t0_batch = time.time(), time.time()
         # Reset tracking variables at the beginning of each epoch
         total_loss, batch_loss, batch_counts = 0, 0, 0
-        # Put the model into the training mode        
-        # For each batch of training data...       
+        
         num_batches = len(train_dataloader)
         model.train()
         for step, batch in enumerate(train_dataloader):            
             sample_counter+= batch_size
             batch_counts +=1
-            # Load batch to GPU
             b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
-            # Zero out any previously calculated gradients
             model.zero_grad()
-            # Perform a forward pass. This will return logits.
             logits = model(b_input_ids, b_attn_mask)
             loss = loss_fn(logits, b_labels)
             batch_loss += loss.item()
@@ -110,25 +107,18 @@ def evaluate(model, val_dataloader):
     """After the completion of each training epoch, measure the model's performance
     on our validation set.
     """
-    # Put the model into the evaluation mode. The dropout layers are disabled during
-    # the test time.
     model.eval()
-    # Tracking variables
     val_accuracy = []
     val_loss = []
-    # For each batch in our validation set...
     for batch in val_dataloader:
         # Load batch to GPU
         b_input_ids, b_attn_mask, b_labels = tuple(t.to(device) for t in batch)
         # Compute logits
         with torch.no_grad():
             logits = model(b_input_ids, b_attn_mask)
-        # Compute loss
         loss = loss_fn(logits, b_labels)
         val_loss.append(loss.item())
-        # Get the predictions
         preds = torch.argmax(logits, dim=1).flatten()
-        # Calculate the accuracy rate
         accuracy = (preds == b_labels).cpu().numpy().mean() * 100
         val_accuracy.append(accuracy)
     # Compute the average accuracy and loss over the validation set.
@@ -139,18 +129,13 @@ def evaluate(model, val_dataloader):
 def predict(model,dataloader):
     model.eval()
     all_logits = []
-    print("Fitting model on test data")
-    
+    print("Fitting model on test data")    
     for batch in dataloader:
-        # Load batch to GPU       
         b_input_ids, b_attn_mask = tuple(t.to(device) for t in batch)[:2]
-        # Compute logits
         with torch.no_grad():
             logits = model(b_input_ids, b_attn_mask)
         all_logits.append(logits)    
-    # Concatenate logits from each batch
     all_logits = torch.cat(all_logits, dim=0)
-    # Apply softmax to calculate probabilities
     probs = F.softmax(all_logits, dim=1).cpu().numpy()
     return probs
 
@@ -173,10 +158,29 @@ def plot_roc(probs,y_true,size,epochs,lr):
     ax.set_ylim([0, 1])
     ax.set_ylabel('True Positive Rate')
     ax.set_xlabel('False Positive Rate')
-    filename = "BERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
+    filename = "../../../trained_models/BERT/BERT_roc_test_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+"e-5.jpg"
     figure.savefig(filename)
     plt.close(figure)
-    
+
+def generate_result_csv(textdata,actual_verdict,prediction,logits):
+    all_results = {"Text":textdata,"Actual Verdict":actual_verdict,"Predicted Verdict":prediction,"Logits":logits}
+    results_df = pd.DataFrame(data=all_results)
+    filename = "../../../trained_models/BERT/BERT_result_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
+    results_df.to_csv(filename)
+
+def plot_lc(filename):
+    with open(filename,'rb') as f:
+        lc_data = pickle.load(f)
+    fig, ax = plt.subplots()
+    train_losses = [lc_data['train_loss'][i] for i in range(len(lc_data['train_loss'])) if i not in [4,9,14,19]]
+    val_losses = lc_data['val_loss']
+    xvals = 16000*np.arange(len(train_losses))
+    ax.plot(xvals,train_losses,'b',label='Training loss')    
+    ax.plot(xvals,val_losses,'r',label='Validation loss') 
+    ax.legend()
+    ax.set_xlabel("Number of iterations")
+    ax.set_ylabel("Loss")
+    plt.show()
 
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
@@ -191,9 +195,17 @@ if __name__ == '__main__':
             try:
                 train_dataloader,val_dataloader,test_dataloader = getDataloaders(size) 
                 filename = "BERT_trained_"+str(size)+"_"+str(int(lr*(1e5)))+"e-5.pth"
+                lc_data_file = "../../../trained_models/BERT/BERT_"+str(size)+"_"+str(int(lr*(1e5)))+"_trainResults.pkl"
+                plot_lc(lc_data_file)
+                
                 model = torch.load("../../../trained_models/BERT/"+filename) 
                 probs = predict(model,test_dataloader)
+                y_pred = probs[:, 1]
+                logits = copy.copy(y_pred)
                 plot_roc(probs, all_data['y_test'],size,epochs,lr)
+                y_pred = np.where(y_pred>0.5, 1, 0)
+                generate_result_csv(all_data['X_test'],all_data['y_test'],y_pred,logits)
+                
                 print("ROC plots generated")
             except OSError:
                 print("Model not found. Starting the training...")

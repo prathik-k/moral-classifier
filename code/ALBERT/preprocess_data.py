@@ -37,7 +37,6 @@ def getDataset():
 
 
 def get_ids_and_attn(body, tokenizer, batch_size):	
-
 	input_ids,attention_masks = [],[]
 	
 	for i,post in enumerate(body):
@@ -45,11 +44,11 @@ def get_ids_and_attn(body, tokenizer, batch_size):
 			print(i,type(post))
 		encoded_post = tokenizer.encode_plus(
             text=post,
-            add_special_tokens=True,        # Add `[CLS]` and `[SEP]`
+            add_special_tokens=True,        
 			max_length=64,
-            pad_to_max_length=True,         # Pad sentence to max length
+            pad_to_max_length=True,         
             truncation=True,
-            return_attention_mask=True      # Return attention mask
+            return_attention_mask=True      
             )
 		input_ids.append(encoded_post.get('input_ids'))
 		attention_masks.append((encoded_post.get('attention_mask')))
@@ -86,16 +85,13 @@ if __name__=="__main__":
 	tokenizer = AlbertTokenizer.from_pretrained(PRE_TRAINED_MODEL_NAME)
 	aita_data = getDataset()
 	preprocess_text(aita_data)
-
-	df_train, df_test = train_test_split(aita_data,test_size=0.1,random_state=RANDOM_SEED)
-	df_train, df_val = train_test_split(df_train,test_size=0.2,random_state=RANDOM_SEED)
-
-	X_train,y_train,X_val,y_val = (df_train["body"].astype(str).tolist(),torch.tensor(df_train["verdict"].values),
-									df_val["body"].astype(str).tolist(),torch.tensor(df_val["verdict"].values))
-	X_test,y_test = (df_test["body"].astype(str).tolist(),torch.tensor(df_test["verdict"].values))
-
+	X = aita_data["body"].astype(str).tolist()
+	y = aita_data["verdict"].values
+	X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.1,random_state=RANDOM_SEED,stratify=y)
+	X_train,X_val,y_train,y_val = train_test_split(X_train,y_train,test_size=0.1,random_state=RANDOM_SEED,stratify=y_train)
+	y_train,y_val,y_test = torch.tensor(y_train),torch.tensor(y_val),torch.tensor(y_test)
 	data_dict = dict(X_train=X_train,y_train=y_train,X_val=X_val,y_val=y_val,X_test=X_test,y_test=y_test)
-
+	print("Data prepared")
 	with open('../../../dataloaders/all_data.pkl','wb') as file:
 		pickle.dump(data_dict,file)
 
