@@ -6,8 +6,6 @@
 4. Again, navigate to the folder with each model, and execute this statement to train the models: python train_and_eval.py
 5. Rerun the above statement in order to generate test metrics. All the results for the tests will be saved in the "../trained_models/$MODEL_NAME$/".
 
-%--------------------------------------------------------------------------------------------------------------%
-
 # Using ALBERT for Transfer Learning
 
 ## Dataset preparation
