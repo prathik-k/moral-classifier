@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 from BERT_Classifier import BertClassifier
 import copy
 
+#Parts of this code were referenced from https://skimai.com/fine-tuning-bert-for-sentiment-analysis/
+
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
     """

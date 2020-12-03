@@ -15,6 +15,8 @@ import sys
 import matplotlib.pyplot as plt
 from ROBERTA_Classifier import RobertaClassifier
 
+#Parts of this code were referenced from https://skimai.com/fine-tuning-bert-for-sentiment-analysis/
+
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
     """
@@ -181,7 +183,7 @@ def generate_result_csv(textdata,actual_verdict,prediction,logits):
     results_df = pd.DataFrame(data=all_results)
     filename = "../../../trained_models/ROBERTA/ROBERTA_result_"+str(size)+"_"+str(epochs)+"_"+str(int(lr*(1e5)))+".csv"
     results_df.to_csv(filename)
-    
+
 if __name__ == '__main__':
     set_seed(1)    # Set seed for reproducibility
     epochs=4
