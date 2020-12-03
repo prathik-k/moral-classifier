@@ -17,6 +17,7 @@ from tqdm import tqdm
 import pickle
 
 sys.path.append("../../dataloaders/")
+#Parts of this code were referenced from https://curiousily.com/posts/sentiment-analysis-with-bert-and-hugging-face-using-pytorch-and-python/
 
 def getDataset():
     url = "https://www.dropbox.com/s/qjmj4wq9ywz5tb7/clean_data.csv?dl=1"

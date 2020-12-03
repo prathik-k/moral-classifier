@@ -15,6 +15,8 @@ import sys
 import matplotlib.pyplot as plt
 from ALBERT_Classifier import AlbertClassifier
 
+#Parts of this code were referenced from https://skimai.com/fine-tuning-bert-for-sentiment-analysis/
+
 def set_seed(seed_value=42):
     """Set seed for reproducibility.
     """
